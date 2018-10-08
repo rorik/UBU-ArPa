@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Visual studio solution and project auto generated files
+.vs
+Practica*/Debug
