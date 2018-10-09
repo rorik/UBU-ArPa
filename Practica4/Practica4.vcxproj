@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{E9BC6218-2A0F-4586-9675-D6A41BF5B1AE}</ProjectGuid>
+    <ProjectGuid>{1D2A22AF-84A5-466F-BCA9-6E0248F7D68E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Practicas</RootNamespace>
-    <ProjectName>Practica3</ProjectName>
+    <ProjectName>Practica4</ProjectName>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -83,7 +83,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Practica3.cpp" />
+    <ClCompile Include="Practica4.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

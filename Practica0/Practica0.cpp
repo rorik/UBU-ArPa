@@ -2,7 +2,7 @@
 #include <stdio.h>
 int main(int argc, char *argv[])
 {
-	/* MPI initializers and varibles */
+	/* MPI initializers and variables */
 	int process_rank, processes_count, cpu_name_length;
 	char cpu_name[128];
 	MPI_Init(&argc, &argv);
