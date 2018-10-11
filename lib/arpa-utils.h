@@ -1,4 +1,5 @@
 #pragma once
+#include <time.h>
 int squarestFactor(int number) {
 	if (number <= 0) {
 		if (number == 0) {
@@ -8,7 +9,7 @@ int squarestFactor(int number) {
 			number = -number;
 		}
 	}
-	for (int i = sqrt(number);; i++) {
+	for (int i = (int)sqrt(number);; i++) {
 		if (number % i == 0) {
 			int otherFactor = abs(number / i);
 			return otherFactor >= i ? otherFactor : i;
@@ -17,5 +18,5 @@ int squarestFactor(int number) {
 }
 
 void randomizeSeed() {
-	srand(time(NULL));
+	srand((unsigned int)time(NULL));
 }

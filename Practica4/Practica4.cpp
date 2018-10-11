@@ -1,7 +1,6 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <arpa-matrix.h>
 #include <arpa-utils.h>
 int main(int argc, char *argv[])
@@ -9,7 +8,6 @@ int main(int argc, char *argv[])
 	/* MPI initializers and variables */
 	int process_rank, processes_count, cpu_name_length;
 	char cpu_name[128];
-	MPI_Status mpi_status;
 	MPI_Comm mpi_comm;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
@@ -32,12 +30,13 @@ int main(int argc, char *argv[])
 		printf("\nSegunda matriz:\n");
 		matrix_B = randomIntMatrix(M, N, 50);
 		printMatrix(matrix_B, M, N, 3);
+		result = emptyIntMatrix(M, N);
 	}
 	else {
 		matrix_A = emptyIntMatrix(M, N);
 		matrix_B = emptyIntMatrix(M, N);
+		result = (int *)nullMatrix();
 	}
-	result = emptyIntMatrix(M, N);
 
 	MPI_Cart_create(MPI_COMM_WORLD, 2, DIM_SIZE, PERIODS, 1, &mpi_comm);
 	MPI_Cart_coords(mpi_comm, process_rank, 2, process_coords);

@@ -26,6 +26,10 @@ void * emptyMatrix(int length, int width, size_t elementSize) {
 	return matrix;
 }
 
+void * nullMatrix() {
+	return emptyMatrix(0, 0, 0);
+}
+
 int * emptyIntMatrix(int length, int width) {
 	return (int *)emptyMatrix(length, width, sizeof(int));
 }

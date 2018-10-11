@@ -1,62 +1,51 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <arpa-matrix.h>
+#include <arpa-utils.h>
 int main(int argc, char *argv[])
 {
 	/* MPI initializers and variables */
 	int process_rank, processes_count, cpu_name_length;
 	char cpu_name[128];
-	MPI_Status mpi_status;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &processes_count);
 	MPI_Get_processor_name(cpu_name, &cpu_name_length);
 
 	/* Main program variables */
-	const int N_MAX = 100;
-	int matrix[N_MAX*N_MAX * 2];
+	int *matrix_A, *matrix_B, *addition, *result;
 
 	/* The Main program */
+	randomizeSeed();
 	if (process_rank == 0) {
 		printf("Primera matriz:\n");
-		for (int i = 0; i < processes_count; i++) {
-			for (int j = 0; j< processes_count; j++) {
-				matrix[i * N_MAX + j] = (rand() % 100);
-				printf("%d ", matrix[i * N_MAX + j]);
-			}
-			printf("\n");
-			fflush(stdout);
-		}
+		matrix_A = randomIntMatrix(processes_count, processes_count, 51);
+		printMatrix(matrix_A, processes_count, processes_count, 3);
 
 		printf("\nSegunda matriz:\n");
-		for (int i = N_MAX; i < processes_count * 2; i++) {
-			for (int j = 0; j < processes_count; j++) {
-				matrix[i * N_MAX + j] = (rand() % 100);
-				printf("%d ", matrix[i * N_MAX + j]);
-			}
-			printf("\n");
-			fflush(stdout);
-		}
-	}
-	MPI_Bcast(matrix, N_MAX * 2 * N_MAX, MPI_INT, 0, MPI_COMM_WORLD);
+		matrix_B = randomIntMatrix(processes_count, processes_count, 50);
+		printMatrix(matrix_B, processes_count, processes_count, 3);
 
-	int resultado[N_MAX];
-	for (int j = 0; j < processes_count; j++) {
-		resultado[j] = matrix[(process_rank) * processes_count + j] + matrix[(process_rank + N_MAX) * processes_count + j];
+		result = emptyIntMatrix(processes_count, processes_count);
 	}
-	int destino[N_MAX][N_MAX];
-	MPI_Gather(resultado, processes_count, MPI_INT, &destino, processes_count, MPI_INT, 0, MPI_COMM_WORLD);
+	else {
+		matrix_A = emptyIntMatrix(processes_count, processes_count);
+		matrix_B = emptyIntMatrix(processes_count, processes_count);
+		result = (int *)nullMatrix();
+	}
+	MPI_Bcast(matrix_A, processes_count * processes_count, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(matrix_B, processes_count * processes_count, MPI_INT, 0, MPI_COMM_WORLD);
 
+	addition = emptyIntMatrix(1, processes_count);
+	for (int j = 0, row = process_rank * processes_count; j < processes_count; j++) {
+		addition[j] = matrix_A[row + j] + matrix_B[row + j];
+	}
+	MPI_Gather(addition, processes_count, MPI_INT, result, processes_count, MPI_INT, 0, MPI_COMM_WORLD);
 
 	if (process_rank == 0) {
 		printf("\nResultado:\n");
-		for (int i = 0; i < processes_count; i++) {
-			for (int j = 0; j < processes_count; j++) {
-				printf("%d ", destino[i][j]);
-			}
-			printf("\n");
-			fflush(stdout);
-		}
+		printMatrix(result, processes_count, processes_count, 3);
 	}
 
 	/* Finalize the program */

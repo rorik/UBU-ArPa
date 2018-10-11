@@ -1,66 +1,49 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <arpa-matrix.h>
+#include <arpa-utils.h>
 int main(int argc, char *argv[])
 {
 	/* MPI initializers and variables */
 	int process_rank, processes_count, cpu_name_length;
 	char cpu_name[128];
-	MPI_Status mpi_status;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &processes_count);
 	MPI_Get_processor_name(cpu_name, &cpu_name_length);
 
 	/* Main program variables */
-	const int N = 5, M = N;
-	int matrix_A[N*M], matrix_B[N*M];
+	const int N = squarestFactor(processes_count);
+	int *matrix_A, *matrix_B;
 	int value_A, value_B, product, result;
 
 	/* The Main program */
-	if (process_rank == 0) {
-		if (processes_count < M * N) {
-			printf("\nExisten menos procesos que elementos de matriz, por lo que el result no va a ser completo.\n");
-			printf("Se necesitan por lo menos %d procesos, pero solo %d han sido lanzados.\n\n", N*M, processes_count);
+	randomizeSeed();
+	if (processes_count / N != N) {
+		if (process_rank == 0) {
+			printf("\nEl numero de procesos lanzados (%d) no se corresponde con una matriz cuadrada.", processes_count);
+			printf("\nSe requiere que sea un numero cuadrado.\n\n");
 			fflush(stdout);
 		}
-		printf("Primera matriz:\n");
-		for (int i = 0; i < N; i++) {
-			for (int j = 0; j < M; j++) {
-				matrix_A[i*N + j] = (rand() % 10);
-				printf("%d ", matrix_A[i*N + j]);
-			}
-			printf("\n");
-		}
-		fflush(stdout);
+		return 1;
+	}
+	if (process_rank == 0) {
+		printf("\nPrimera matriz:\n");
+		matrix_A = randomIntMatrix(N, N, 100);
+		printMatrix(matrix_A, N, N, 3);
 
 		printf("\nSegunda matriz:\n");
-		for (int i = 0; i < N; i++) {
-			for (int j = 0; j < M; j++) {
-				matrix_B[i*N + j] = (rand() % 10);
-				printf("%d ", matrix_B[i*N + j]);
-			}
-			printf("\n");
-		}
-		fflush(stdout);
+		matrix_B = randomIntMatrix(N, N, 100);
+		printMatrix(matrix_B, N, N, 3);
 	}
 
 	MPI_Scatter(matrix_A, 1, MPI_INT, &value_A, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Scatter(matrix_B, 1, MPI_INT, &value_B, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	if (process_rank < N * M) {
-		product = value_A * value_B;
-	}
-	else {
-		product = 0;
-	}
+	product = value_A * value_B;
 	MPI_Reduce(&product, &result, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 	if (process_rank == 0) {
-		if (processes_count < M * N) {
-			printf("\nresult: %d (!!! NO HAN SIDO PROCESADOS TODOS LOS ELEMENTOS !!!)\n", result);
-		}
-		else {
-			printf("\nresult: %d\n", result);
-		}
+		printf("\nResultado: %d\n", result);
 		fflush(stdout);
 	}
 
