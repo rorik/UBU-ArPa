@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	MPI_Bcast(matrix_A, M* N, MPI_INT, 0, mpi_comm);
 	MPI_Bcast(matrix_B, M* N, MPI_INT, 0, mpi_comm);
 
-	array_index = process_coords[0] + process_coords[1] * N; // coord.x + coord.y * width
+	array_index = process_coords[1] + process_coords[0] * N; // coord.x + coord.y * width
 	addition = matrix_A[array_index] + matrix_B[array_index];
 	MPI_Gather(&addition, 1, MPI_INT, result, 1, MPI_INT, 0, mpi_comm);
 	if (process_rank == 0) {
