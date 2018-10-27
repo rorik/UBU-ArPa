@@ -33,6 +33,9 @@ int main(int argc, char *argv[]) {
 				fseek(stdin, 0, SEEK_END); // Clean stdin
 			}
 			MPI_Isend(&number, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &mpi_request_main); // Send the number to 1
+			if (number == 0) {
+				break; // Exit condition
+			}
 			printf("Esperando resultado...");
 			fflush(stdout);
 			MPI_Irecv(&result, 1, MPI_UNSIGNED_LONG_LONG, 1, 0, MPI_COMM_WORLD, &mpi_request_main); // Get the result from 1
@@ -47,6 +50,9 @@ int main(int argc, char *argv[]) {
 		while (true) {
 			MPI_Irecv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Get the number from 1
 			MPI_Wait(&mpi_request_main, &mpi_status); // Wait until the number has arrived
+			if (number == 0) {
+				break; // Exit condition
+			}
 			result = factorial(number, &overflow);
 			MPI_Isend(&result, 1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Send the result to 0
 			MPI_Isend(&overflow, 1, MPI_C_BOOL, 0, 1, MPI_COMM_WORLD, &mpi_request_flag); // Send the overflow flag to 0
