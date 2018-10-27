@@ -48,8 +48,8 @@ int main(int argc, char *argv[]) {
 			MPI_Irecv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Get the number from 1
 			MPI_Wait(&mpi_request_main, &mpi_status); // Wait until the number has arrived
 			result = factorial(number, &overflow);
-			MPI_Isend(&result, 1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Send the result to 1
-			MPI_Isend(&overflow, 1, MPI_C_BOOL, 0, 1, MPI_COMM_WORLD, &mpi_request_flag); // Send the overflow flag to 1
+			MPI_Isend(&result, 1, MPI_UNSIGNED_LONG_LONG, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Send the result to 0
+			MPI_Isend(&overflow, 1, MPI_C_BOOL, 0, 1, MPI_COMM_WORLD, &mpi_request_flag); // Send the overflow flag to 0
 		}
 	}
 
@@ -78,7 +78,7 @@ long long unsigned int factorial(int number, bool *overflow_flag) {
 	}
 	long long unsigned int result = 1;
 	for (int i = 1; i <= number; i++) {
-		if (ULLONG_MAX / i < result) { // Return UULONG_MAX if overflowed
+		if (ULLONG_MAX / i < result) { // Return ULLONG_MAX if overflowed
 			*overflow_flag = true;
 			return ULLONG_MAX;
 		}
