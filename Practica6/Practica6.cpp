@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 	}
 	else if (process_rank == 1) {
 		while (true) {
-			MPI_Irecv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Get the number from 1
+			MPI_Irecv(&number, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &mpi_request_main); // Get the number from 0
 			MPI_Wait(&mpi_request_main, &mpi_status); // Wait until the number has arrived
 			if (number == 0) {
 				break; // Exit condition
