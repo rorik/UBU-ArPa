@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Practica8-parent", "Practic
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Practica8-child", "Practica8\Practica8-child\Practica8-child.vcxproj", "{98D5A2BC-1060-4897-A9B0-0DC94E891DC6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Practica9", "Practica9\Practica9.vcxproj", "{0A5D87B1-EAB8-4DCF-857D-8BA58C38CC8B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -75,6 +77,10 @@ Global
 		{98D5A2BC-1060-4897-A9B0-0DC94E891DC6}.Debug|x86.Build.0 = Debug|Win32
 		{98D5A2BC-1060-4897-A9B0-0DC94E891DC6}.Release|x86.ActiveCfg = Release|Win32
 		{98D5A2BC-1060-4897-A9B0-0DC94E891DC6}.Release|x86.Build.0 = Release|Win32
+		{0A5D87B1-EAB8-4DCF-857D-8BA58C38CC8B}.Debug|x86.ActiveCfg = Debug|Win32
+		{0A5D87B1-EAB8-4DCF-857D-8BA58C38CC8B}.Debug|x86.Build.0 = Debug|Win32
+		{0A5D87B1-EAB8-4DCF-857D-8BA58C38CC8B}.Release|x86.ActiveCfg = Release|Win32
+		{0A5D87B1-EAB8-4DCF-857D-8BA58C38CC8B}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
