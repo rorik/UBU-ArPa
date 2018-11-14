@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <arpa-matrix.h>
-#include <arpa-utils.h>
+
 int main(int argc, char *argv[])
 {
 	/* MPI initializers and variables */
