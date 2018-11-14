@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < MATRIX_DIM[0]; i++) {
 			for (int j = 0; j < MATRIX_DIM[1]; j++) {
 				matrix_A[i][j] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
+				matrix_B[j][i] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
 				#if STDOUT
 					printf("%5.2f ", matrix_A[i][j]);
 				#endif // STDOUT
@@ -67,7 +68,6 @@ int main(int argc, char *argv[])
 		#endif // STDOUT
 		for (int i = 0; i < MATRIX_DIM[1]; i++) {
 			for (int j = 0; j < MATRIX_DIM[0]; j++) {
-				matrix_B[i][j] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
 				#if STDOUT
 					printf("%5.2f ", matrix_B[i][j]);
 				#endif // STDOUT
