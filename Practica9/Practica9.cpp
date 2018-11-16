@@ -9,6 +9,7 @@
 int *parseArgs(int, char *[]);
 void printMatrix(float **, int, int);
 float **createMatrix(int, int);
+void freeMatrix(float **);
 
 int main(int argc, char *argv[])
 {
@@ -23,7 +24,7 @@ int main(int argc, char *argv[])
 	/* Main program variables */
 	const int *MATRIX_DIM = parseArgs(argc, argv);
 	float **matrix_A, **matrix_B, *row, *column;
-	MPI_Datatype matrix_row, matrix_column;
+	int *sendcounts_rows, *displs_rows, *sendcounts_columns, *displs_columns;
 
 	/* The Main program */
 	if (MATRIX_DIM == NULL || MATRIX_DIM[0] == 0 || MATRIX_DIM[1] == 0) {
@@ -39,7 +40,6 @@ int main(int argc, char *argv[])
 
 	matrix_A = createMatrix(MATRIX_DIM[0], MATRIX_DIM[1]);
 	matrix_B = createMatrix(MATRIX_DIM[1], MATRIX_DIM[0]);
-	row = (float *)malloc(MATRIX_DIM[1] * sizeof(float));
 
 	if (process_rank == 0) {
 		randomizeSeed();
@@ -56,6 +56,35 @@ int main(int argc, char *argv[])
 			printMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
 			fflush(stdout);
 		#endif // STDOUT
+	}
+	
+
+	sendcounts_rows = (int *)malloc(MATRIX_DIM[0] * sizeof(int));
+	displs_rows = (int *)malloc(MATRIX_DIM[0] * sizeof(int));
+	row = (float *)malloc(MATRIX_DIM[1] * sizeof(float));
+	for (int i = 0; i < MATRIX_DIM[0]; i++) {
+		sendcounts_rows[i] = MATRIX_DIM[1];
+		displs_rows[i] = MATRIX_DIM[1] * i;
+	}
+	MPI_Scatterv(matrix_A[0], sendcounts_rows, displs_rows, MPI_FLOAT, row, MATRIX_DIM[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
+	free(sendcounts_rows);
+	free(displs_rows);
+	if (process_rank == 0) {
+		freeMatrix(matrix_A);
+	}
+
+	sendcounts_columns = (int *)malloc(MATRIX_DIM[1] * sizeof(int));
+	displs_columns = (int *)malloc(MATRIX_DIM[1] * sizeof(int));
+	column = (float *)malloc(MATRIX_DIM[0] * sizeof(float));
+	for (int i = 0; i < MATRIX_DIM[1]; i++) {
+		sendcounts_columns[i] = MATRIX_DIM[0];
+		displs_columns[i] = MATRIX_DIM[0] * i;
+	}
+	MPI_Scatterv(matrix_B[0], sendcounts_columns, displs_columns, MPI_FLOAT, column, MATRIX_DIM[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
+	free(sendcounts_columns);
+	free(displs_columns);
+	if (process_rank == 0) {
+		freeMatrix(matrix_B);
 	}
 
 	/* Finalize the program */
@@ -90,9 +119,14 @@ void printMatrix(float **matrix, const int height, const int width) {
 float **createMatrix(const int height, const int width) {
 	float **matrix;
 	matrix = (float **)malloc(height * sizeof(float *));
-	matrix[0] = (float *)malloc(height * width * sizeof(float));
+	matrix[0] = (float *)malloc(width * height * sizeof(float));
 	for (int i = 1; i < height; i++) {
 		matrix[i] = matrix[i-1] + width;
 	}
 	return matrix;
+}
+
+void freeMatrix(float **matrix) {
+	free(matrix[0]);
+	free(matrix);
 }
