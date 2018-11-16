@@ -19,4 +19,5 @@ int squarestFactor(int number) {
 
 void randomizeSeed() {
 	srand((unsigned int)time(NULL));
+	rand();
 }
