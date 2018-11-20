@@ -40,6 +40,14 @@ int main(int argc, char *argv[])
 		MPI_Finalize();
 		return 0;
 	}
+	if (MATRIX_DIM[0] != processes_count) {
+		if (process_rank == 0) {
+			printf("\nError:\nThe amount of processes must be the same as the number of rows of the first matrix.\n");
+			fflush(stdout);
+		}
+		MPI_Finalize();
+		return 0;
+	}
 
 	matrix_A = createMatrix(MATRIX_DIM[0], MATRIX_DIM[1]);
 	matrix_B = createMatrix(MATRIX_DIM[1], MATRIX_DIM[0]);
