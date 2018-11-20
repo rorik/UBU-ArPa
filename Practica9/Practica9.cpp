@@ -9,7 +9,10 @@
 int *parseArgs(int, char *[]);
 void printMatrix(float **, int, int);
 float **createMatrix(int, int);
+void fillMatrix(float **, const int, const int);
 void freeMatrix(float **);
+void rowDistribution(float **, float **, const int *, int);
+
 
 int main(int argc, char *argv[])
 {
@@ -23,8 +26,7 @@ int main(int argc, char *argv[])
 
 	/* Main program variables */
 	const int *MATRIX_DIM = parseArgs(argc, argv);
-	float **matrix_A, **matrix_B, *row, *column;
-	int *sendcounts_rows, *displs_rows, *sendcounts_columns, *displs_columns;
+	float **matrix_A, **matrix_B;
 
 	/* The Main program */
 	if (MATRIX_DIM == NULL || MATRIX_DIM[0] == 0 || MATRIX_DIM[1] == 0) {
@@ -42,13 +44,8 @@ int main(int argc, char *argv[])
 	matrix_B = createMatrix(MATRIX_DIM[1], MATRIX_DIM[0]);
 
 	if (process_rank == 0) {
-		randomizeSeed();
-		for (int i = 0; i < MATRIX_DIM[0]; i++) {
-			for (int j = 0; j < MATRIX_DIM[1]; j++) {
-				matrix_A[i][j] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
-				matrix_B[j][i] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
-			}
-		}
+		fillMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
+		fillMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
 		#if STDOUT
 			printf("[FIRST MATRIX]:\n");
 			printMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
@@ -58,34 +55,7 @@ int main(int argc, char *argv[])
 		#endif // STDOUT
 	}
 	
-
-	sendcounts_rows = (int *)malloc(MATRIX_DIM[0] * sizeof(int));
-	displs_rows = (int *)malloc(MATRIX_DIM[0] * sizeof(int));
-	row = (float *)malloc(MATRIX_DIM[1] * sizeof(float));
-	for (int i = 0; i < MATRIX_DIM[0]; i++) {
-		sendcounts_rows[i] = MATRIX_DIM[1];
-		displs_rows[i] = MATRIX_DIM[1] * i;
-	}
-	MPI_Scatterv(matrix_A[0], sendcounts_rows, displs_rows, MPI_FLOAT, row, MATRIX_DIM[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
-	free(sendcounts_rows);
-	free(displs_rows);
-	if (process_rank == 0) {
-		freeMatrix(matrix_A);
-	}
-
-	sendcounts_columns = (int *)malloc(MATRIX_DIM[1] * sizeof(int));
-	displs_columns = (int *)malloc(MATRIX_DIM[1] * sizeof(int));
-	column = (float *)malloc(MATRIX_DIM[0] * sizeof(float));
-	for (int i = 0; i < MATRIX_DIM[1]; i++) {
-		sendcounts_columns[i] = MATRIX_DIM[0];
-		displs_columns[i] = MATRIX_DIM[0] * i;
-	}
-	MPI_Scatterv(matrix_B[0], sendcounts_columns, displs_columns, MPI_FLOAT, column, MATRIX_DIM[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
-	free(sendcounts_columns);
-	free(displs_columns);
-	if (process_rank == 0) {
-		freeMatrix(matrix_B);
-	}
+	rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank);
 
 	/* Finalize the program */
 	MPI_Finalize();
@@ -126,7 +96,66 @@ float **createMatrix(const int height, const int width) {
 	return matrix;
 }
 
+void fillMatrix(float **matrix, const int height, const int width) {
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			matrix[i][j] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
+		}
+	}
+}
+
 void freeMatrix(float **matrix) {
 	free(matrix[0]);
 	free(matrix);
+}
+
+void rowDistribution(float **matrix_A, float **matrix_B, const int * dimensions, int process_rank) {
+	int *sendcounts_rows = (int *)malloc(dimensions[0] * sizeof(int));
+	int *displs_rows = (int *)malloc(dimensions[0] * sizeof(int));
+	int *recvcounts = (int *)malloc(dimensions[0] * sizeof(int));
+	int *recvdispls = (int *)malloc(dimensions[0] * sizeof(int));
+	float *row = (float *)malloc(dimensions[1] * sizeof(float));
+	float *column_result = (float *)malloc(dimensions[0] * sizeof(float));
+	float **result;
+
+	/* Distribute B */
+	MPI_Bcast(matrix_B[0], dimensions[0] * dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+	/* Distribute all rows of A */
+	for (int i = 0; i < dimensions[0]; i++) {
+		sendcounts_rows[i] = dimensions[1];
+		displs_rows[i] = dimensions[1] * i;
+		recvcounts[i] = dimensions[0];
+		recvdispls[i] = dimensions[0] * i;
+	}
+	MPI_Scatterv(matrix_A[0], sendcounts_rows, displs_rows, MPI_FLOAT, row, dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
+	free(sendcounts_rows);
+	free(displs_rows);
+	if (process_rank == 0) {
+		freeMatrix(matrix_A);
+	}
+
+	/* Multiplicate the each column of B with the row */
+	#if STDOUT
+		printf("[%d]:\n", process_rank);
+	#endif // STDOUT
+	for (int i = 0; i < dimensions[0]; i++) {
+		float addition = matrix_B[dimensions[1] - 1][i] + row[dimensions[0] - 1];
+		for (int j = 0; j < dimensions[1] - 1; j++) {
+			addition += matrix_B[j][i] + row[j];
+			#if STDOUT
+				printf("%.2f * %.2f + ", matrix_B[j][i], row[j]);
+			#endif // STDOUT
+		}
+		column_result[i] = addition;
+		#if STDOUT
+			printf("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[0] - 1], addition);
+		#endif // STDOUT
+	}
+
+	if (process_rank == 0) {
+		result = createMatrix(dimensions[0], dimensions[0]);
+	}
+
+
 }
