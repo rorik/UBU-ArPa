@@ -5,13 +5,14 @@
 #include <arpa-utils.h>
 
 #define STDOUT true //show output
+#define DEBUG false //show debug output
 
 int *parseArgs(int, char *[]);
 void printMatrix(float **, int, int);
 float **createMatrix(int, int);
 void fillMatrix(float **, const int, const int);
 void freeMatrix(float **);
-void rowDistribution(float **, float **, const int *, int);
+float **rowDistribution(float **, float **, const int *, int);
 
 
 int main(int argc, char *argv[])
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 	matrix_B = createMatrix(MATRIX_DIM[1], MATRIX_DIM[0]);
 
 	if (process_rank == 0) {
+		randomizeSeed();
 		fillMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
 		fillMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
 		#if STDOUT
@@ -109,53 +111,56 @@ void freeMatrix(float **matrix) {
 	free(matrix);
 }
 
-void rowDistribution(float **matrix_A, float **matrix_B, const int * dimensions, int process_rank) {
-	int *sendcounts_rows = (int *)malloc(dimensions[0] * sizeof(int));
-	int *displs_rows = (int *)malloc(dimensions[0] * sizeof(int));
-	int *recvcounts = (int *)malloc(dimensions[0] * sizeof(int));
-	int *recvdispls = (int *)malloc(dimensions[0] * sizeof(int));
+float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensions, int process_rank) {
+	int *sendcounts = (int *)malloc(dimensions[0] * sizeof(int));
+	int *displs = (int *)malloc(dimensions[0] * sizeof(int));
 	float *row = (float *)malloc(dimensions[1] * sizeof(float));
 	float *column_result = (float *)malloc(dimensions[0] * sizeof(float));
-	float **result;
 
 	/* Distribute B */
 	MPI_Bcast(matrix_B[0], dimensions[0] * dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
 
 	/* Distribute all rows of A */
 	for (int i = 0; i < dimensions[0]; i++) {
-		sendcounts_rows[i] = dimensions[1];
-		displs_rows[i] = dimensions[1] * i;
-		recvcounts[i] = dimensions[0];
-		recvdispls[i] = dimensions[0] * i;
+		sendcounts[i] = dimensions[1];
+		displs[i] = dimensions[1] * i;
 	}
-	MPI_Scatterv(matrix_A[0], sendcounts_rows, displs_rows, MPI_FLOAT, row, dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
-	free(sendcounts_rows);
-	free(displs_rows);
+	MPI_Scatterv(matrix_A[0], sendcounts, displs, MPI_FLOAT, row, dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
+	free(sendcounts);
+	free(displs);
 	if (process_rank == 0) {
 		freeMatrix(matrix_A);
 	}
 
 	/* Multiplicate the each column of B with the row */
-	#if STDOUT
+	#if DEBUG
 		printf("[%d]:\n", process_rank);
-	#endif // STDOUT
+	#endif // DEBUG
 	for (int i = 0; i < dimensions[0]; i++) {
-		float addition = matrix_B[dimensions[1] - 1][i] + row[dimensions[0] - 1];
+		column_result[i] = matrix_B[dimensions[1] - 1][i] * row[dimensions[1] - 1];
 		for (int j = 0; j < dimensions[1] - 1; j++) {
-			addition += matrix_B[j][i] + row[j];
-			#if STDOUT
+			column_result[i] += matrix_B[j][i] + row[j];
+			#if DEBUG
 				printf("%.2f * %.2f + ", matrix_B[j][i], row[j]);
-			#endif // STDOUT
+			#endif // DEBUG
 		}
-		column_result[i] = addition;
-		#if STDOUT
-			printf("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[0] - 1], addition);
-		#endif // STDOUT
+		#if DEBUG
+			printf("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[1] - 1], column_result[i]);
+		#endif // DEBUG
 	}
 
+	/* Calculate result and return it */
+	float **result = NULL;
 	if (process_rank == 0) {
 		result = createMatrix(dimensions[0], dimensions[0]);
+		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, result[0], dimensions[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
+		#if STDOUT
+			printf("[RESULT]:\n");
+			printMatrix(result, dimensions[0], dimensions[0]);
+		#endif // STDOUT
 	}
-
-
+	else {
+		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, NULL, 0, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	}
+	return result;
 }
