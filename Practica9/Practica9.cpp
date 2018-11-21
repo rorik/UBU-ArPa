@@ -4,7 +4,7 @@
 #include <arpa-matrix.h>
 #include <arpa-utils.h>
 
-#define STDOUT true //show output
+#define STDOUT false //show output
 #define DEBUG false //show debug output
 
 int *parseArgs(int, char *[]);
@@ -13,6 +13,8 @@ float **createMatrix(int, int);
 void fillMatrix(float **, const int, const int);
 void freeMatrix(float **);
 float **rowDistribution(float **, float **, const int *, int);
+void printif(char *format...);
+void printif_debug(char *format...);
 
 
 int main(int argc, char *argv[])
@@ -28,6 +30,7 @@ int main(int argc, char *argv[])
 	/* Main program variables */
 	const int *MATRIX_DIM = parseArgs(argc, argv);
 	float **matrix_A, **matrix_B;
+	double start_time;
 
 	/* The Main program */
 	if (MATRIX_DIM == NULL || MATRIX_DIM[0] == 0 || MATRIX_DIM[1] == 0) {
@@ -56,16 +59,19 @@ int main(int argc, char *argv[])
 		randomizeSeed();
 		fillMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
 		fillMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
-		#if STDOUT
-			printf("[FIRST MATRIX]:\n");
-			printMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
-			printf("[SECOND MATRIX]:\n");
-			printMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
-			fflush(stdout);
-		#endif // STDOUT
+		printif("[FIRST MATRIX]:\n");
+		printMatrix(matrix_A, MATRIX_DIM[0], MATRIX_DIM[1]);
+		printif("[SECOND MATRIX]:\n");
+		printMatrix(matrix_B, MATRIX_DIM[1], MATRIX_DIM[0]);
+		fflush(stdout);
+		start_time = MPI_Wtime();
 	}
 	
 	rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank);
+
+	if (process_rank == 0) {
+		printf("Finished in %1.3lf seconds.", 10 * (MPI_Wtime() - start_time));
+	}
 
 	/* Finalize the program */
 	MPI_Finalize();
@@ -87,15 +93,6 @@ int *parseArgs(int argc, char *argv[]) {
 	return dimension;
 }
 
-void printMatrix(float **matrix, const int height, const int width) {
-	for (int i = 0; i < height; i++) {
-		for (int j = 0; j < width; j++) {
-			printf("%5.2f ", matrix[i][j]);
-		}
-		printf("\n");
-	}
-}
-
 float **createMatrix(const int height, const int width) {
 	float **matrix;
 	matrix = (float **)malloc(height * sizeof(float *));
@@ -109,7 +106,7 @@ float **createMatrix(const int height, const int width) {
 void fillMatrix(float **matrix, const int height, const int width) {
 	for (int i = 0; i < height; i++) {
 		for (int j = 0; j < width; j++) {
-			matrix[i][j] = (float)rand() / (float)(RAND_MAX / 10); // float between 0 and 10
+			matrix[i][j] = (float)rand() / (float)(RAND_MAX / 5); // float between 0 and 5
 		}
 	}
 }
@@ -141,20 +138,14 @@ float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensio
 	}
 
 	/* Multiplicate the each column of B with the row */
-	#if DEBUG
-		printf("[%d]:\n", process_rank);
-	#endif // DEBUG
+	printif_debug("[%d]:\n", process_rank);
 	for (int i = 0; i < dimensions[0]; i++) {
 		column_result[i] = matrix_B[dimensions[1] - 1][i] * row[dimensions[1] - 1];
 		for (int j = 0; j < dimensions[1] - 1; j++) {
 			column_result[i] += matrix_B[j][i] + row[j];
-			#if DEBUG
-				printf("%.2f * %.2f + ", matrix_B[j][i], row[j]);
-			#endif // DEBUG
+			printif_debug("%.2f * %.2f + ", matrix_B[j][i], row[j]);
 		}
-		#if DEBUG
-			printf("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[1] - 1], column_result[i]);
-		#endif // DEBUG
+		printif_debug("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[1] - 1], column_result[i]);
 	}
 
 	/* Calculate result and return it */
@@ -162,13 +153,34 @@ float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensio
 	if (process_rank == 0) {
 		result = createMatrix(dimensions[0], dimensions[0]);
 		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, result[0], dimensions[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
-		#if STDOUT
-			printf("[RESULT]:\n");
-			printMatrix(result, dimensions[0], dimensions[0]);
-		#endif // STDOUT
+		printif("[RESULT]:\n");
+		printMatrix(result, dimensions[0], dimensions[0]);
 	}
 	else {
 		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, NULL, 0, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	}
 	return result;
+}
+
+void printMatrix(float **matrix, const int height, const int width) {
+#if STDOUT
+	for (int i = 0; i < height; i++) {
+		for (int j = 0; j < width; j++) {
+			printf("%6.2f ", matrix[i][j]);
+		}
+		printf("\n");
+	}
+#endif // STDOUT
+}
+
+void printif(char *format...) {
+#if STDOUT
+	printf(format);
+#endif // STDOUT
+}
+
+void printif_debug(char *format...) {
+#if DEBUG
+	printf(format);
+#endif // DEBUG
 }
