@@ -4,7 +4,7 @@
 #include <arpa-matrix.h>
 #include <arpa-utils.h>
 
-#define STDOUT false //show output
+#define STDOUT false //show matrix output
 #define DEBUG false //show debug output
 
 int *parseArgs(int, char *[]);
@@ -12,7 +12,7 @@ void printMatrix(float **, int, int);
 float **createMatrix(int, int);
 void fillMatrix(float **, const int, const int);
 void freeMatrix(float **);
-float **rowDistribution(float **, float **, const int *, int);
+float **rowDistribution(float **, float **, const int *, int, int);
 void printif(char *format...);
 void printif_debug(char *format...);
 
@@ -43,14 +43,6 @@ int main(int argc, char *argv[])
 		MPI_Finalize();
 		return 0;
 	}
-	if (MATRIX_DIM[0] != processes_count) {
-		if (process_rank == 0) {
-			printf("\nError:\nThe amount of processes must be the same as the number of rows of the first matrix.\n");
-			fflush(stdout);
-		}
-		MPI_Finalize();
-		return 0;
-	}
 
 	matrix_A = createMatrix(MATRIX_DIM[0], MATRIX_DIM[1]);
 	matrix_B = createMatrix(MATRIX_DIM[1], MATRIX_DIM[0]);
@@ -67,10 +59,10 @@ int main(int argc, char *argv[])
 		start_time = MPI_Wtime();
 	}
 	
-	rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank);
+	rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank, processes_count);
 
 	if (process_rank == 0) {
-		printf("Finished in %1.3lf seconds.", 10 * (MPI_Wtime() - start_time));
+		printf("Finished in %1.3lf seconds.", (MPI_Wtime() - start_time));
 	}
 
 	/* Finalize the program */
@@ -116,49 +108,66 @@ void freeMatrix(float **matrix) {
 	free(matrix);
 }
 
-float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensions, int process_rank) {
+float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensions, int process_rank, int processes_count) {
 	int *sendcounts = (int *)malloc(dimensions[0] * sizeof(int));
 	int *displs = (int *)malloc(dimensions[0] * sizeof(int));
 	float *row = (float *)malloc(dimensions[1] * sizeof(float));
-	float *column_result = (float *)malloc(dimensions[0] * sizeof(float));
+	float **result = NULL;
 
 	/* Distribute B */
 	MPI_Bcast(matrix_B[0], dimensions[0] * dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
 
 	/* Distribute all rows of A */
-	for (int i = 0; i < dimensions[0]; i++) {
-		sendcounts[i] = dimensions[1];
-		displs[i] = dimensions[1] * i;
-	}
-	MPI_Scatterv(matrix_A[0], sendcounts, displs, MPI_FLOAT, row, dimensions[1], MPI_FLOAT, 0, MPI_COMM_WORLD);
-	free(sendcounts);
-	free(displs);
 	if (process_rank == 0) {
-		freeMatrix(matrix_A);
-	}
-
-	/* Multiplicate the each column of B with the row */
-	printif_debug("[%d]:\n", process_rank);
-	for (int i = 0; i < dimensions[0]; i++) {
-		column_result[i] = matrix_B[dimensions[1] - 1][i] * row[dimensions[1] - 1];
-		for (int j = 0; j < dimensions[1] - 1; j++) {
-			column_result[i] += matrix_B[j][i] + row[j];
-			printif_debug("%.2f * %.2f + ", matrix_B[j][i], row[j]);
-		}
-		printif_debug("%.2f * %.2f = %.2f\n", matrix_B[dimensions[1] - 1][i], row[dimensions[1] - 1], column_result[i]);
-	}
-
-	/* Calculate result and return it */
-	float **result = NULL;
-	if (process_rank == 0) {
+		int current_row = 0;
+		int received_rows = 0;
 		result = createMatrix(dimensions[0], dimensions[0]);
-		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, result[0], dimensions[0], MPI_FLOAT, 0, MPI_COMM_WORLD);
-		printif("[RESULT]:\n");
+		for (; current_row < ( processes_count - 1); current_row++) {
+			if (current_row < dimensions[0]) {
+				MPI_Send(matrix_A[current_row], dimensions[1], MPI_FLOAT, current_row + 1, current_row, MPI_COMM_WORLD);
+			} else {
+				MPI_Send(NULL, 0, MPI_FLOAT, current_row + 1, dimensions[0], MPI_COMM_WORLD);
+			}
+		}
+		while (received_rows < dimensions[0]) {
+			MPI_Status status;
+			float *row_result = (float *)malloc(dimensions[0] * sizeof(float));
+			MPI_Recv(row_result, dimensions[0], MPI_FLOAT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			received_rows++;
+			result[status.MPI_TAG] = row_result;
+			if (current_row < dimensions[0]) {
+				MPI_Send(matrix_A[current_row], dimensions[1], MPI_FLOAT, status.MPI_SOURCE, current_row, MPI_COMM_WORLD);
+				current_row++;
+			}
+			else {
+				MPI_Send(NULL, 0, MPI_FLOAT, status.MPI_SOURCE, dimensions[0], MPI_COMM_WORLD);
+			}
+		}
+		printif("[RESULT MATRIX]:\n");
 		printMatrix(result, dimensions[0], dimensions[0]);
+	} else {
+		while (true) {
+			MPI_Status status;
+			float *row_result = (float *)malloc(dimensions[0] * sizeof(float));
+			MPI_Recv(row, dimensions[1], MPI_FLOAT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			if (status.MPI_TAG == dimensions[0]) {
+				printif_debug("[%d] Finished", process_rank);
+				break;
+			}
+			printif_debug("[%d] row %d:\n", process_rank, status.MPI_TAG);
+			for (int i = 0; i < dimensions[0]; i++) {
+				row_result[i] = 0;
+				for (int j = 0; j < dimensions[1]; j++) {
+					row_result[i] += matrix_B[j][i] * row[j];
+					printif_debug("%.2f*%.2f + ", matrix_B[j][i], row[j]);
+				}
+				printif_debug("\b\b= %5.2f\n", row_result[i]);
+			}
+			MPI_Send(row_result, dimensions[0], MPI_FLOAT, 0, status.MPI_TAG, MPI_COMM_WORLD);
+			fflush(stdout);
+		}
 	}
-	else {
-		MPI_Gather(column_result, dimensions[0], MPI_FLOAT, NULL, 0, MPI_FLOAT, 0, MPI_COMM_WORLD);
-	}
+
 	return result;
 }
 
