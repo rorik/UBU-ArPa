@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
 	/* Main program variables */
 	const int *MATRIX_DIM = parseArgs(argc, argv);
-	float **matrix_A, **matrix_B;
+	float **matrix_A, **matrix_B, **result;
 	double start_time;
 
 	/* The Main program */
@@ -59,9 +59,13 @@ int main(int argc, char *argv[])
 		start_time = MPI_Wtime();
 	}
 	
-	rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank, processes_count);
+	result = rowDistribution(matrix_A, matrix_B, MATRIX_DIM, process_rank, processes_count);
+
+	freeMatrix(matrix_A);
+	freeMatrix(matrix_B);
 
 	if (process_rank == 0) {
+		freeMatrix(result);
 		printf("Finished in %1.3lf seconds.", (MPI_Wtime() - start_time));
 	}
 
@@ -163,8 +167,8 @@ float **rowDistribution(float **matrix_A, float **matrix_B, const int * dimensio
 				}
 				printif_debug("\b\b= %5.2f\n", row_result[i]);
 			}
+			free(row);
 			MPI_Send(row_result, dimensions[0], MPI_FLOAT, 0, status.MPI_TAG, MPI_COMM_WORLD);
-			fflush(stdout);
 		}
 	}
 
